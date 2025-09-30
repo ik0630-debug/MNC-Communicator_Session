@@ -1,0 +1,740 @@
+:root {
+  --background-color: #1a1a1a;
+  --panel-background: #2c2c2c;
+  --text-color: #e0e0e0;
+  --primary-color: #007bff;
+  --primary-hover-color: #0056b3;
+  --danger-color: #dc3545;
+  --danger-hover-color: #b02a37;
+  --success-color: #28a745;
+  --success-hover-color: #218838;
+  --border-color: #444;
+  --input-background: #333;
+  --speaker-bg: #000000;
+  --speaker-default-text: #FFFF00;
+}
+
+body {
+  margin: 0;
+  font-family: 'Noto Sans KR', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+h1 {
+  text-align: center;
+  margin-top: 0;
+  color: var(--text-color);
+}
+
+.app-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+}
+
+.panel {
+  background-color: var(--panel-background);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  flex: 1;
+  min-width: 400px;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.speaker-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-width: 400px;
+  max-width: 800px;
+}
+
+.speaker-section .panel {
+  flex: 0;
+}
+
+.panel h2 {
+  margin-top: 0;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 10px;
+  text-align: center;
+}
+
+.speaker-panel-content {
+  aspect-ratio: 16 / 9;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border-color);
+  padding: 20px;
+  box-sizing: border-box;
+  container-type: inline-size;
+}
+
+.speaker-text {
+  padding: 10px;
+  text-align: center;
+  word-break: break-word;
+  line-height: 1.2;
+  font-weight: bold;
+  transition: opacity 0.3s ease;
+  white-space: pre-wrap;
+}
+
+@keyframes blink {
+  50% { opacity: 0.2; }
+}
+
+.blinking {
+  animation: blink 2s linear infinite;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.control-group > label {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.timer-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 10px;
+}
+
+.timer-controls .timer-input-group {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.timer-controls .timer-input-group input {
+    width: 100%;
+    flex-grow: 1;
+}
+
+.timer-controls .primary { /* 시간 설정 */
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+}
+
+.timer-controls .success { /* 시작 */
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+}
+.timer-controls .danger { /* 초기화 */
+    grid-column: 2 / 3;
+    grid-row: 2 / 3;
+}
+
+
+.input-row input[type="number"], 
+.input-row input[type="text"],
+.input-row textarea,
+.input-row select {
+  flex-grow: 1;
+}
+
+input[type="number"], input[type="text"], select, textarea {
+  padding: 8px 12px;
+  background-color: var(--input-background);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+textarea {
+  min-height: 42px; /* Approx 2 rows */
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  color: white;
+  background-color: #555;
+}
+button:hover {
+    background-color: #666;
+}
+
+button.primary { background-color: var(--primary-color); }
+button.primary:hover { background-color: var(--primary-hover-color); }
+
+button.success { background-color: var(--success-color); }
+button.success:hover { background-color: var(--success-hover-color); }
+
+button.danger { background-color: var(--danger-color); }
+button.danger:hover { background-color: var(--danger-hover-color); }
+
+button:disabled {
+  background-color: #444;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.mode-buttons .active {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.preset-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-item {
+    position: relative;
+    display: flex;
+}
+
+.preset-item > button:first-of-type {
+    flex-grow: 1;
+    text-align: left;
+    padding-right: 60px; /* Make space for two buttons */
+    white-space: pre-wrap;
+    word-break: break-word;
+    height: auto;
+    min-height: 42px;
+}
+
+.edit-preset-btn,
+.delete-preset-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.4);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    border: none;
+    opacity: 0;
+    transition: opacity 0.2s ease, background-color 0.2s ease, visibility 0.2s ease;
+    visibility: hidden;
+}
+
+.delete-preset-btn {
+    right: 6px;
+}
+
+.edit-preset-btn {
+    right: 34px;
+}
+
+.edit-preset-btn:hover {
+    background-color: var(--primary-color);
+}
+
+.delete-preset-btn:hover {
+    background-color: var(--danger-color);
+}
+
+.preset-item:hover .edit-preset-btn,
+.preset-item:hover .delete-preset-btn {
+    opacity: 1;
+    visibility: visible;
+}
+
+.preset-edit-controls {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+    align-items: center;
+}
+.preset-edit-controls textarea {
+    flex-grow: 1;
+}
+.preset-edit-controls button {
+    flex-shrink: 0;
+    padding: 8px 12px;
+}
+
+
+/* Broadcast Button */
+.broadcast-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.broadcast-button {
+  background-color: var(--danger-color);
+  color: white;
+  padding: 10px 30px;
+  font-size: 1.1rem;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.broadcast-button:hover {
+  background-color: var(--danger-hover-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--panel-background);
+  padding: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  width: 90%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: row;
+  gap: 30px;
+  max-height: 85vh;
+}
+
+.modal-content h3 {
+  margin: 0 0 20px 0;
+  text-align: center;
+}
+
+.modal-preview-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-settings-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding-right: 15px; /* for scrollbar */
+}
+
+.modal-preview {
+  padding: 20px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  box-sizing: border-box;
+  container-type: inline-size;
+}
+
+.modal-preview-text {
+  text-align: center;
+  word-break: break-word;
+  font-weight: bold;
+  white-space: pre-wrap;
+}
+
+.modal-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex-grow: 1; /* allow it to take space for scrolling */
+}
+
+.modal-controls fieldset {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.modal-controls legend {
+    font-weight: bold;
+    padding: 0 10px;
+    color: var(--primary-color);
+}
+
+.control-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 15px;
+    align-items: center;
+}
+
+.control-row label {
+  font-weight: bold;
+  text-align: right;
+  padding-right: 10px;
+}
+
+.font-size-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.font-size-control input[type="range"] {
+    flex-grow: 1;
+}
+
+.font-size-control .px-input {
+    width: 70px;
+    text-align: right;
+    padding-right: 5px;
+}
+
+.font-size-control span {
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: auto; /* Push actions to the bottom */
+  padding-top: 20px;
+}
+
+/* --- New Styles for Multi-View Structure --- */
+
+/* Selection Screen Styles */
+.selection-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  padding: 20px;
+}
+
+.selection-box {
+  background-color: var(--panel-background);
+  border-radius: 8px;
+  padding: 40px;
+  border: 1px solid var(--border-color);
+  text-align: center;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.selection-box h1 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: var(--primary-color);
+}
+
+.selection-box p {
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+}
+
+.session-control {
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+.session-control label {
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+.session-control input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.selection-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.selection-grid button {
+  padding: 20px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.selection-grid button:hover:not(:disabled) {
+  background-color: var(--primary-hover-color);
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+
+/* Settings Management */
+.settings-management {
+    margin-top: 40px;
+}
+.settings-management fieldset {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    text-align: left;
+}
+.settings-management legend {
+    font-weight: bold;
+    font-size: 1.2rem;
+    padding: 0 10px;
+    color: var(--primary-color);
+}
+.settings-management .control-row {
+    display: flex;
+    gap: 10px;
+}
+.settings-management .control-row > *:first-child {
+    flex-grow: 1;
+}
+.settings-management .button-group {
+    display: flex;
+    gap: 10px;
+}
+.settings-management .button-group button {
+    flex-shrink: 0;
+}
+
+
+/* Back Button Styles */
+.back-button {
+  background-color: #555;
+}
+.back-button:hover {
+  background-color: #666;
+}
+
+/* Main Header for Console View */
+.main-header {
+  text-align: center;
+  position: relative;
+  margin-bottom: 20px;
+}
+.main-header h1 {
+  margin: 0;
+  display: inline-block;
+}
+.main-header .back-button {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+/* Fullscreen Speaker View Styles */
+.fullscreen-view {
+  width: 100vw;
+  height: 100vh;
+  /* Reset body padding */
+  margin: -20px; 
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.fullscreen-close-button {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 1001;
+    background-color: rgba(44, 44, 44, 0.7);
+    color: #fff;
+    border: 1px solid #888;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.fullscreen-close-button:hover {
+    background-color: rgba(20, 20, 20, 0.9);
+    transform: scale(1.1);
+}
+
+
+.fullscreen-view .panel {
+  flex-grow: 1; /* Make SpeakerPanel grow */
+  width: 100%;
+  max-width: none;
+  min-width: unset;
+  border-radius: 0;
+  border: none;
+  padding: 0; /* Remove padding for fullscreen */
+}
+
+/* In fullscreen, panel has no title, so we don't need to hide h2 */
+.fullscreen-view .panel h2 {
+    display: none;
+}
+
+
+.fullscreen-view .speaker-panel-content {
+  aspect-ratio: unset;
+  flex-grow: 1;
+  border-radius: 0;
+  border: none;
+}
+
+/* --- New Styles for Mixed Mode Layout --- */
+
+.speaker-panel-content.mixed-mode {
+  justify-content: center; /* Center the main message */
+}
+
+.speaker-text.corner-timer {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  padding: 5px 15px;
+  background-color: rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  line-height: 1.2;
+  font-weight: 700;
+  z-index: 10;
+}
+
+/* --- New Styles for Image Upload & Display --- */
+.image-upload-area {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.image-upload-preview {
+    max-width: 100%;
+    max-height: 150px;
+    height: auto;
+    object-fit: contain;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--input-background);
+    align-self: center;
+}
+
+.image-fit-options {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+.image-fit-options label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-weight: normal;
+    text-align: left;
+    padding-right: 0;
+}
+
+.speaker-panel-content.image-mode {
+    padding: 0;
+    overflow: hidden;
+}
+
+.speaker-panel-content.image-mode.scrollable {
+    overflow-y: auto;
+}
+
+.speaker-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* --- New Styles for Fullscreen Scroll --- */
+.fullscreen-view .speaker-panel-content.message-mode {
+  justify-content: flex-start; /* Align content to top */
+  align-items: stretch;
+}
+
+.fullscreen-view .speaker-panel-content.message-mode .message-text {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: left;
+  padding: 2rem;
+  font-size: 2.5vw;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
