@@ -29,7 +29,9 @@ const firebaseConfig = {
 
 // --- Firebase Initialization ---
 let database: any;
-const isFirebaseConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "AIzaSyDxaWIl2IVH6Ozoclkjd5BfM8_AHieEzls" && firebaseConfig.apiKey !== "YOUR_API_KEY";
+// FIX: The check incorrectly treated the actual API key as a placeholder, causing it to always be false.
+// This is now corrected to only check for an empty or generic placeholder key.
+const isFirebaseConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
 
 if (isFirebaseConfigured) {
     try {
@@ -304,6 +306,7 @@ interface ConsolePanelProps {
     onSendMessage: (message: string) => void;
     onOpenSettings: () => void;
     isRunning: boolean;
+    initialTime: number;
     displayMode: DisplayMode;
     onSetDisplayMode: (mode: DisplayMode) => void;
     presetMessages: string[];
@@ -323,18 +326,25 @@ interface ConsolePanelProps {
 
 const ConsolePanel = (props: ConsolePanelProps) => {
   const {
-      onSetTime, onStartPause, onReset, onSendMessage, onOpenSettings, isRunning,
+      onSetTime, onStartPause, onReset, onSendMessage, onOpenSettings, isRunning, initialTime,
       displayMode, onSetDisplayMode, presetMessages, onAddPreset, onDeletePreset, onUpdatePreset,
       onToggleBlink, isBlinking, onClearMessage, isModerator,
       imagePresets, onAddImagePreset, onDeleteImagePreset, onSendImage, styles
   } = props;
 
-  const [minutes, setMinutes] = useState(60);
-  const [seconds, setSeconds] = useState(0);
+  const [minutes, setMinutes] = useState(Math.floor(initialTime / 60));
+  const [seconds, setSeconds] = useState(initialTime % 60);
   const [customMessage, setCustomMessage] = useState("");
   const [newPreset, setNewPreset] = useState("");
   const [editingPresetIndex, setEditingPresetIndex] = useState<number | null>(null);
   const [editingPresetText, setEditingPresetText] = useState("");
+
+  // Sync timer inputs when initialTime prop changes from Firebase
+  useEffect(() => {
+    setMinutes(Math.floor(initialTime / 60));
+    setSeconds(initialTime % 60);
+  }, [initialTime]);
+
 
   // Image upload state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -350,7 +360,7 @@ const ConsolePanel = (props: ConsolePanelProps) => {
   }, [styles.image?.fit]);
 
   const displayModes = isModerator
-    ? [ { key: 'message', label: '메시지' }, { key: 'mixed', label: '메시지+타이머' }, { key: 'image', label: '이미지' } ]
+    ? [ { key: 'message', label: '메시지' }, { key: 'mixed', label: '메시지+타이머' }, { key: 'timer', label: '타이머' }, { key: 'image', label: '이미지' } ]
     : [ { key: 'timer', label: '타이머' }, { key: 'message', label: '메시지' }, { key: 'mixed', label: '메시지+타이머' } ];
 
   const handleAddPresetClick = () => {
@@ -421,27 +431,32 @@ const ConsolePanel = (props: ConsolePanelProps) => {
       }
   };
 
+  const TimerSettings = () => (
+    <div className="control-group">
+        <label>타이머 설정</label>
+        <div className="timer-controls">
+            <div className="timer-input-group">
+                <input type="number" value={minutes} onChange={(e) => setMinutes(parseInt(e.target.value, 10) || 0)} placeholder="분" min="0" aria-label="Minutes" />
+                <span>분</span>
+                <input type="number" value={seconds} onChange={(e) => setSeconds(parseInt(e.target.value, 10) || 0)} placeholder="초" min="0" max="59" aria-label="Seconds" />
+                <span>초</span>
+            </div>
+            <button className="primary" onClick={() => onSetTime(minutes, seconds)}>시간 설정</button>
+            {!isModerator && (
+                <>
+                    <button className="success" onClick={onStartPause}>{isRunning ? "일시정지" : "시작"}</button>
+                    <button className="danger" onClick={onReset}>초기화</button>
+                </>
+            )}
+        </div>
+    </div>
+  );
+
   return (
     <div className="panel console-panel">
       <h2>콘솔 (Console)</h2>
-      
-      {isModerator && (
-        <div className="control-group">
-          <label>타이머 설정</label>
-          <div className="timer-controls">
-              <div className="timer-input-group">
-                  <input type="number" value={minutes} onChange={(e) => setMinutes(parseInt(e.target.value, 10) || 0)} placeholder="분" min="0" aria-label="Minutes" />
-                  <span>분</span>
-                  <input type="number" value={seconds} onChange={(e) => setSeconds(parseInt(e.target.value, 10) || 0)} placeholder="초" min="0" max="59" aria-label="Seconds" />
-                  <span>초</span>
-              </div>
-            <button className="primary" onClick={() => onSetTime(minutes, seconds)}>시간 설정</button>
-            <button className="success" onClick={onStartPause}>{isRunning ? "일시정지" : "시작"}</button>
-            <button className="danger" onClick={onReset}>초기화</button>
-          </div>
-        </div>
-      )}
 
+      {!isModerator && <TimerSettings />}
 
        <div className="control-group">
         <label>송출 모드</label>
@@ -673,23 +688,25 @@ const SpeakerPanel = ({ title, timeRemaining, message, isBlinking, styles, displ
 
 interface SelectionScreenProps {
     onSelect: (view: View, sessionId: string) => void;
+    onSessionIdConfirm: (sessionId: string) => void;
+    onLeaveSession: () => void;
+    currentSessionId: string;
     savedConfigs: SavedConfig[];
     onSave: (name: string) => void;
     onLoad: (name: string) => void;
     onDelete: (name: string) => void;
 }
 
-const SelectionScreen = ({ onSelect, savedConfigs, onSave, onLoad, onDelete }: SelectionScreenProps) => {
+const SelectionScreen = ({ onSelect, onSessionIdConfirm, onLeaveSession, currentSessionId, savedConfigs, onSave, onLoad, onDelete }: SelectionScreenProps) => {
   const [configName, setConfigName] = useState("");
   const [selectedConfig, setSelectedConfig] = useState("");
-  const [sessionId, setSessionId] = useState("");
-  const isSessionIdEntered = sessionId.trim().length > 0;
+  const [sessionIdInput, setSessionIdInput] = useState("");
   
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionFromUrl = urlParams.get('session');
-    if (sessionFromUrl) {
-        setSessionId(sessionFromUrl);
+    if (sessionFromUrl && !currentSessionId) {
+        onSessionIdConfirm(sessionFromUrl);
     }
   }, []);
 
@@ -726,42 +743,65 @@ const SelectionScreen = ({ onSelect, savedConfigs, onSave, onLoad, onDelete }: S
     }
   };
   
-  const handleSelectView = (view: View) => {
-      if (isSessionIdEntered) {
-          onSelect(view, sessionId.trim());
+  const handleJoinClick = () => {
+      if (sessionIdInput.trim()) {
+          onSessionIdConfirm(sessionIdInput.trim());
       }
   };
+
+  if (!currentSessionId) {
+    return (
+        <div className="selection-container">
+            <div className="selection-box">
+                <h1>M&C Communicator</h1>
+                
+                {!isFirebaseConfigured && (
+                    <div className="firebase-warning">
+                        <strong>설정 필요:</strong> 실시간 공유 기능을 사용하려면 Firebase 설정이 필요합니다.
+                        <br />
+                        <code>index.tsx</code> 파일 상단의 <code>firebaseConfig</code> 객체를 채워주세요.
+                    </div>
+                )}
+
+                <div className="session-control">
+                    <label htmlFor="session-id">세션 ID</label>
+                    <input 
+                        id="session-id"
+                        type="text"
+                        value={sessionIdInput}
+                        onChange={(e) => setSessionIdInput(e.target.value)}
+                        placeholder="참여할 세션 ID를 입력하세요"
+                        onKeyDown={(e) => e.key === 'Enter' && handleJoinClick()}
+                    />
+                </div>
+                 <button 
+                    className="primary join-button" 
+                    onClick={handleJoinClick} 
+                    disabled={!sessionIdInput.trim() || !isFirebaseConfigured}
+                >
+                    세션 참여
+                </button>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="selection-container">
       <div className="selection-box">
         <h1>M&C Communicator</h1>
         
-        {!isFirebaseConfigured && (
-            <div className="firebase-warning">
-                <strong>설정 필요:</strong> 실시간 공유 기능을 사용하려면 Firebase 설정이 필요합니다.
-                <br />
-                <code>index.tsx</code> 파일 상단의 <code>firebaseConfig</code> 객체를 채워주세요.
-            </div>
-        )}
-
-        <div className="session-control">
-            <label htmlFor="session-id">세션 ID</label>
-            <input 
-                id="session-id"
-                type="text"
-                value={sessionId}
-                onChange={(e) => setSessionId(e.target.value)}
-                placeholder="참여할 세션 ID를 입력하세요"
-            />
+        <div className="session-display">
+            <span>세션 ID: <strong>{currentSessionId}</strong></span>
+            <button onClick={onLeaveSession} className="secondary">세션 변경</button>
         </div>
 
         <p>어떤 화면으로 접속하시겠습니까?</p>
         <div className="selection-grid">
-          <button onClick={() => handleSelectView('moderator_console')} disabled={!isSessionIdEntered || !isFirebaseConfigured}>사회자용 콘솔</button>
-          <button onClick={() => handleSelectView('speaker_console')} disabled={!isSessionIdEntered || !isFirebaseConfigured}>발표자용 콘솔</button>
-          <button onClick={() => handleSelectView('moderator_screen')} disabled={!isSessionIdEntered || !isFirebaseConfigured}>사회자 화면</button>
-          <button onClick={() => handleSelectView('speaker_screen')} disabled={!isSessionIdEntered || !isFirebaseConfigured}>발표자 화면</button>
+          <button onClick={() => onSelect('moderator_console', currentSessionId)} disabled={!isFirebaseConfigured}>사회자용 콘솔</button>
+          <button onClick={() => onSelect('speaker_console', currentSessionId)} disabled={!isFirebaseConfigured}>발표자용 콘솔</button>
+          <button onClick={() => onSelect('moderator_screen', currentSessionId)} disabled={!isFirebaseConfigured}>사회자 화면</button>
+          <button onClick={() => onSelect('speaker_screen', currentSessionId)} disabled={!isFirebaseConfigured}>발표자 화면</button>
         </div>
 
         <div className="settings-management">
@@ -807,6 +847,33 @@ const SelectionScreen = ({ onSelect, savedConfigs, onSave, onLoad, onDelete }: S
 
 type View = 'selection' | 'moderator_console' | 'moderator_screen' | 'speaker_console' | 'speaker_screen';
 
+// --- Web Worker for Timer ---
+const timerWorkerScript = `
+  let interval;
+  let time = 0;
+  self.onmessage = (e) => {
+    const { command, value } = e.data;
+    if (command === 'start') {
+      clearInterval(interval);
+      interval = setInterval(() => {
+        if (time > 0) {
+          time--;
+          self.postMessage(time);
+        } else {
+          self.postMessage(0);
+          clearInterval(interval);
+        }
+      }, 1000);
+    } else if (command === 'pause') {
+      clearInterval(interval);
+    } else if (command === 'setTime') {
+      time = value;
+      self.postMessage(time); // Send back the initial time to sync UI
+    }
+  };
+`;
+
+
 const App = () => {
   const STORAGE_KEY = 'mnc-communicator-configs';
   
@@ -825,12 +892,12 @@ const App = () => {
     }
   });
 
-  // Timer State
+  // Timer State (for Preview)
   const [initialTime, setInitialTime] = useState(60 * 60);
   const [timeRemaining, setTimeRemaining] = useState(initialTime);
   const [isRunning, setIsRunning] = useState(false);
   
-  // Preview State
+  // Preview Content State
   const [displayMode, setDisplayMode] = useState<DisplayMode>('timer');
   const [message, setMessage] = useState('');
   const [isBlinking, setIsBlinking] = useState(false);
@@ -843,6 +910,7 @@ const App = () => {
   const [liveIsBlinking, setLiveIsBlinking] = useState(false);
   const [liveImageSrc, setLiveImageSrc] = useState('');
   const [liveImageFit, setLiveImageFit] = useState<ImageFit>('contain');
+  const [liveTimeRemaining, setLiveTimeRemaining] = useState(60 * 60);
 
   // Common State
   const [presetMessages, setPresetMessages] = useState<string[]>(INITIAL_PRESET_MESSAGES);
@@ -861,15 +929,62 @@ const App = () => {
     image: { fit: 'contain' },
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // Role definitions
   const isModerator = view === 'moderator_console';
+  const isTimerController = view === 'speaker_console';
+
+  const workerRef = useRef<Worker | null>(null);
+
+  // --- Web Worker Setup & Communication ---
+  useEffect(() => {
+    // Only the speaker console (timer controller) needs a worker
+    if (isTimerController) {
+      const blob = new Blob([timerWorkerScript], { type: 'application/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+      const worker = new Worker(workerUrl);
+      workerRef.current = worker;
+
+      // Listen for time updates from the worker
+      worker.onmessage = (e) => {
+        setTimeRemaining(e.data);
+      };
+
+      // Initial sync with worker state
+      worker.postMessage({ command: 'setTime', value: initialTime });
+      if (isRunning) {
+        worker.postMessage({ command: 'start' });
+      }
+
+      return () => {
+        worker.terminate();
+        URL.revokeObjectURL(workerUrl);
+        workerRef.current = null;
+      };
+    }
+  }, [isTimerController]); // Re-create worker if role changes
+
 
   // --- Real-time Communication (Firebase) ---
+  
+  // For speaker only: broadcast local timer state to PREVIEW path
+  useEffect(() => {
+    if (isTimerController && sessionId && isFirebaseConfigured && database) {
+        const previewTimerRef = ref(database, `sessions/${sessionId}/preview_timer`);
+        set(previewTimerRef, {
+            timeRemaining,
+            isRunning,
+            initialTime,
+        });
+    }
+  }, [timeRemaining, isRunning, initialTime, isTimerController, sessionId]);
+
+  // For all clients: listen for data from Firebase
   useEffect(() => {
     if (sessionId && isFirebaseConfigured && database) {
-      const contentRef = ref(database, `sessions/${sessionId}/content`);
-      const timerRef = ref(database, `sessions/${sessionId}/timer`);
-
-      const onContentUpdate = onValue(contentRef, (snapshot) => {
+      // --- LIVE DATA LISTENERS (for all clients) ---
+      const liveContentRef = ref(database, `sessions/${sessionId}/content`);
+      const onLiveContentUpdate = onValue(liveContentRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
           setLiveDisplayMode(data.displayMode ?? 'timer');
@@ -880,21 +995,34 @@ const App = () => {
         }
       });
 
-      const onTimerUpdate = onValue(timerRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          // Only update if the received data is different to avoid loops in moderator console
-          if (data.initialTime !== initialTime) setInitialTime(data.initialTime);
-          if (data.timeRemaining !== timeRemaining) setTimeRemaining(data.timeRemaining);
-          if (data.isRunning !== isRunning) setIsRunning(data.isRunning);
-        }
+      const liveTimerRef = ref(database, `sessions/${sessionId}/timer`);
+      const onLiveTimerUpdate = onValue(liveTimerRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+              setLiveTimeRemaining(data.timeRemaining ?? 0);
+          }
       });
+      
+      // --- PREVIEW DATA LISTENER (for moderator only) ---
+      let onPreviewTimerUpdate = () => {}; // No-op for cleanup
+      if (isModerator) {
+        const previewTimerRef = ref(database, `sessions/${sessionId}/preview_timer`);
+        onPreviewTimerUpdate = onValue(previewTimerRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+              // Moderator updates its preview state from the speaker's actions
+              setInitialTime(data.initialTime);
+              setTimeRemaining(data.timeRemaining);
+              setIsRunning(data.isRunning);
+          }
+        });
+      }
 
-      // Cleanup on component unmount or session change
+      // Cleanup on component unmount or session/role change
       return () => {
-        // Detach listeners
-        onContentUpdate();
-        onTimerUpdate();
+        onLiveContentUpdate();
+        onLiveTimerUpdate();
+        onPreviewTimerUpdate();
       };
     }
   }, [sessionId, isModerator]); // Re-run if session or role changes
@@ -908,79 +1036,39 @@ const App = () => {
     }
   }, [savedConfigs]);
 
-
-  useEffect(() => {
-    let interval;
-    if (isRunning && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining(prev => prev - 1);
-      }, 1000);
-    } else if (isRunning && timeRemaining <= 0) {
-      setIsRunning(false);
-      // Only moderator auto-sends Time's up message
-      if (isModerator) {
-        setMessage("Time's Up!");
-        setDisplayMode('message');
-        setIsBlinking(true);
+  const handleSetTime = (minutes: number, seconds: number) => {
+    if (isTimerController) {
+      const newTime = (minutes * 60) + seconds;
+      setInitialTime(newTime);
+      setTimeRemaining(newTime);
+      setIsRunning(false); // Setting time always stops it.
+      
+      if (workerRef.current) {
+        workerRef.current.postMessage({ command: 'pause' }); // Ensure worker stops
+        workerRef.current.postMessage({ command: 'setTime', value: newTime });
       }
     }
-    return () => clearInterval(interval);
-  }, [isRunning, timeRemaining, isModerator]);
-  
-  const broadcastTimerState = (state: { time: number; running: boolean; initial: number }) => {
-    if (isFirebaseConfigured && database && sessionId && isModerator) {
-      const timerRef = ref(database, `sessions/${sessionId}/timer`);
-      set(timerRef, {
-        timeRemaining: state.time,
-        isRunning: state.running,
-        initialTime: state.initial,
-      });
-    }
-  };
-  
-  const broadcastContentState = (state: { mode: DisplayMode; msg: string; blink: boolean; img: string; fit: ImageFit }) => {
-    if (isFirebaseConfigured && database && sessionId && isModerator) {
-      const contentRef = ref(database, `sessions/${sessionId}/content`);
-      set(contentRef, {
-        displayMode: state.mode,
-        message: state.msg,
-        isBlinking: state.blink,
-        imageSrc: state.img,
-        imageFit: state.fit,
-      });
-    }
-  };
-
-  const handleSetTime = (minutes: number, seconds: number) => {
-    const newTime = (minutes * 60) + seconds;
-    setInitialTime(newTime);
-    setTimeRemaining(newTime);
-    setIsRunning(false);
-    broadcastTimerState({ time: newTime, running: false, initial: newTime });
   };
 
   const handleStartPause = () => {
-    if (timeRemaining > 0) {
+    if (isTimerController && (timeRemaining > 0 || !isRunning)) {
       const newIsRunning = !isRunning;
       setIsRunning(newIsRunning);
-      broadcastTimerState({ time: timeRemaining, running: newIsRunning, initial: initialTime });
+      if (workerRef.current) {
+        workerRef.current.postMessage({ command: newIsRunning ? 'start' : 'pause' });
+      }
     }
   };
 
   const handleReset = () => {
-    setIsRunning(false);
-    setTimeRemaining(initialTime);
-    setMessage('');
-    setImageSrc('');
-    setImageFit('contain');
-    setIsBlinking(false);
-    setDisplayMode('timer');
-    
-    broadcastTimerState({ time: initialTime, running: false, initial: initialTime });
-    broadcastContentState({ mode: 'timer', msg: '', blink: false, img: '', fit: 'contain' });
-    
-    // Sync live view immediately
-    handleBroadcast();
+    if (isTimerController) {
+      setIsRunning(false);
+      setTimeRemaining(initialTime);
+      if (workerRef.current) {
+        workerRef.current.postMessage({ command: 'pause' });
+        workerRef.current.postMessage({ command: 'setTime', value: initialTime });
+      }
+    }
   };
 
   const handleSendMessage = (msg: string) => {
@@ -1014,32 +1102,62 @@ const App = () => {
   const handleSaveSettings = (newStyles: Styles) => setStyles(newStyles);
   
   const handleBroadcast = () => {
-    // Local state for live view is updated via Firebase listener
-    broadcastContentState({
-      mode: displayMode,
-      msg: message,
-      blink: isBlinking,
-      img: imageSrc,
-      fit: imageFit,
-    });
+    if (isModerator && isFirebaseConfigured && database && sessionId) {
+      // Broadcast content from preview state to live path
+      const contentRef = ref(database, `sessions/${sessionId}/content`);
+      set(contentRef, {
+        displayMode: displayMode,
+        message: message,
+        isBlinking: isBlinking,
+        imageSrc: imageSrc,
+        imageFit: imageFit,
+      });
+
+      // Broadcast timer from preview state to live path
+      const timerRef = ref(database, `sessions/${sessionId}/timer`);
+      set(timerRef, {
+        timeRemaining: timeRemaining,
+        isRunning: isRunning, // Note: Send isRunning state for potential pause display on live
+        initialTime: initialTime,
+      });
+    }
+  };
+  
+  const handleBroadcastTimer = () => {
+    if (isTimerController && isFirebaseConfigured && database && sessionId) {
+      // Broadcast only the timer from preview state to live path
+      const timerRef = ref(database, `sessions/${sessionId}/timer`);
+      set(timerRef, {
+        timeRemaining: timeRemaining,
+        isRunning: isRunning,
+        initialTime: initialTime,
+      });
+    }
   };
 
   const handleBackToSelection = () => {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('session');
-      window.history.pushState({}, '', url);
       setView('selection');
-      setSessionId('');
   };
 
   const handleSelectView = (selectedView: View, selectedSessionId: string) => {
-      const url = new URL(window.location.href);
-      url.searchParams.set('session', selectedSessionId);
-      window.history.pushState({}, '', url);
       setSessionId(selectedSessionId);
       setView(selectedView);
   };
   
+  const handleSessionIdConfirm = (id: string) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('session', id);
+      window.history.pushState({}, '', url);
+      setSessionId(id);
+  };
+  
+  const handleLeaveSession = () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('session');
+      window.history.pushState({}, '', url);
+      setSessionId('');
+  };
+
   // --- Config Management Handlers ---
   const handleSaveConfig = (name: string) => {
     const currentSettings: ConfigSettings = { styles, presetMessages, imagePresets };
@@ -1081,6 +1199,9 @@ const App = () => {
   if (view === 'selection') {
     return <SelectionScreen 
               onSelect={handleSelectView} 
+              onSessionIdConfirm={handleSessionIdConfirm}
+              onLeaveSession={handleLeaveSession}
+              currentSessionId={sessionId}
               savedConfigs={savedConfigs}
               onSave={handleSaveConfig}
               onLoad={handleLoadConfig}
@@ -1108,6 +1229,7 @@ const App = () => {
             onSendMessage={handleSendMessage}
             onOpenSettings={() => setIsSettingsOpen(true)}
             isRunning={isRunning}
+            initialTime={initialTime}
             displayMode={displayMode}
             onSetDisplayMode={setDisplayMode}
             presetMessages={presetMessages}
@@ -1135,11 +1257,11 @@ const App = () => {
                 imageFit={imageFit}
               />
               <div className="broadcast-controls">
-                  <button className="broadcast-button" onClick={handleBroadcast} disabled={!isModerator}>송출</button>
+                  <button className="broadcast-button" onClick={isModerator ? handleBroadcast : handleBroadcastTimer}>송출</button>
               </div>
                <SpeakerPanel 
                 title="송출 화면 (Live View)"
-                timeRemaining={timeRemaining}
+                timeRemaining={liveTimeRemaining}
                 message={liveMessage}
                 isBlinking={liveIsBlinking}
                 styles={styles}
@@ -1171,7 +1293,7 @@ const App = () => {
             An empty string is provided as no title is rendered in this fullscreen view. */}
         <SpeakerPanel
           title=""
-          timeRemaining={timeRemaining}
+          timeRemaining={liveTimeRemaining}
           message={liveMessage}
           isBlinking={liveIsBlinking}
           styles={styles}
@@ -1183,10 +1305,12 @@ const App = () => {
     );
   }
 
-  // FIX: The fallback call to 'SelectionScreen' was missing required props.
-  // Added the missing props to ensure the component receives all necessary data.
+  // Fallback to the selection screen
   return <SelectionScreen 
             onSelect={handleSelectView}
+            onSessionIdConfirm={handleSessionIdConfirm}
+            onLeaveSession={handleLeaveSession}
+            currentSessionId={sessionId}
             savedConfigs={savedConfigs}
             onSave={handleSaveConfig}
             onLoad={handleLoadConfig}

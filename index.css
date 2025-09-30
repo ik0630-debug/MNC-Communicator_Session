@@ -208,6 +208,16 @@ button.success:hover { background-color: var(--success-hover-color); }
 button.danger { background-color: var(--danger-color); }
 button.danger:hover { background-color: var(--danger-hover-color); }
 
+button.secondary {
+  background-color: #6c757d;
+  padding: 5px 10px;
+  font-size: 0.9rem;
+}
+button.secondary:hover {
+  background-color: #5a6268;
+}
+
+
 button:disabled {
   background-color: #444;
   cursor: not-allowed;
@@ -480,17 +490,18 @@ button:disabled {
 
 .selection-box h1 {
   margin-top: 0;
-  margin-bottom: 10px;
+  margin-bottom: 30px;
   color: var(--primary-color);
 }
 
 .selection-box p {
-  margin-bottom: 30px;
+  margin-top: 30px;
+  margin-bottom: 20px;
   font-size: 1.1rem;
 }
 
 .session-control {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -506,6 +517,28 @@ button:disabled {
     padding: 12px;
     font-size: 1.1rem;
     text-align: center;
+}
+
+.selection-box .join-button {
+  width: 100%;
+  padding: 15px;
+  font-size: 1.2rem;
+  margin-top: 10px;
+}
+
+.session-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--input-background);
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color);
+}
+.session-display strong {
+  color: var(--primary-color);
+  margin-left: 8px;
 }
 
 .selection-grid {
