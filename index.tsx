@@ -5,6 +5,53 @@ import './index.css';
 
 const { useState, useEffect, useRef } = React;
 
+// --- Firebase Configuration ---
+// IMPORTAN: Firebase 프로젝트를 생성하고 아래에 설정을 붙여넣으세요.
+// 1. https://firebase.google.com/ 로 이동하여 프로젝트를 생성합니다.
+// 2. '빌드' -> 'Realtime Database'로 이동하여 데이터베이스를 생성합니다 (보안 규칙은 '테스트 모드에서 시작' 선택).
+// 3. 프로젝트 설정(좌측 상단 톱니바퀴) > 일반 탭에서 아래로 스크롤하여 '내 앱' 섹션의 '</>' 아이콘을 클릭해 웹 앱을 등록합니다.
+// 4. 'SDK 설정 및 구성'에서 '구성'을 선택하고, 나타나는 설정 객체를 복사하여 아래에 붙여넣습니다.
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDxaWIl2IVH6Ozoclkjd5BfM8_AHieEzls",
+  authDomain: "mnc-communicator.firebaseapp.com",
+  projectId: "mnc-communicator",
+  storageBucket: "mnc-communicator.firebasestorage.app",
+  messagingSenderId: "333912152053",
+  appId: "1:333912152053:web:36750fb32a37406c1fb2bc",
+  measurementId: "G-VDX5YN0E7S"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+// --- Firebase Initialization ---
+declare const firebase: any; // Inform TypeScript that 'firebase' is a global variable from the script tag
+let database: any;
+const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+if (isFirebaseConfigured) {
+    try {
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        database = firebase.database();
+    } catch (e) {
+        console.error("Firebase initialization failed:", e);
+        alert("Firebase configuration is incorrect. Please check the code.");
+    }
+} else {
+    console.warn("Firebase configuration is needed. Please fill in the firebaseConfig object in 'index.tsx'.");
+}
+
 // --- Type Definitions ---
 type DisplayMode = 'timer' | 'message' | 'mixed' | 'image';
 type ImageFit = 'contain' | 'width';
@@ -699,6 +746,14 @@ const SelectionScreen = ({ onSelect, savedConfigs, onSave, onLoad, onDelete }: S
       <div className="selection-box">
         <h1>M&C Communicator</h1>
         
+        {!isFirebaseConfigured && (
+            <div className="firebase-warning">
+                <strong>설정 필요:</strong> 실시간 공유 기능을 사용하려면 Firebase 설정이 필요합니다.
+                <br />
+                <code>index.tsx</code> 파일 상단의 <code>firebaseConfig</code> 객체를 채워주세요.
+            </div>
+        )}
+
         <div className="session-control">
             <label htmlFor="session-id">세션 ID</label>
             <input 
@@ -712,10 +767,10 @@ const SelectionScreen = ({ onSelect, savedConfigs, onSave, onLoad, onDelete }: S
 
         <p>어떤 화면으로 접속하시겠습니까?</p>
         <div className="selection-grid">
-          <button onClick={() => handleSelectView('moderator_console')} disabled={!isSessionIdEntered}>사회자용 콘솔</button>
-          <button onClick={() => handleSelectView('speaker_console')} disabled={!isSessionIdEntered}>발표자용 콘솔</button>
-          <button onClick={() => handleSelectView('moderator_screen')} disabled={!isSessionIdEntered}>사회자 화면</button>
-          <button onClick={() => handleSelectView('speaker_screen')} disabled={!isSessionIdEntered}>발표자 화면</button>
+          <button onClick={() => handleSelectView('moderator_console')} disabled={!isSessionIdEntered || !isFirebaseConfigured}>사회자용 콘솔</button>
+          <button onClick={() => handleSelectView('speaker_console')} disabled={!isSessionIdEntered || !isFirebaseConfigured}>발표자용 콘솔</button>
+          <button onClick={() => handleSelectView('moderator_screen')} disabled={!isSessionIdEntered || !isFirebaseConfigured}>사회자 화면</button>
+          <button onClick={() => handleSelectView('speaker_screen')} disabled={!isSessionIdEntered || !isFirebaseConfigured}>발표자 화면</button>
         </div>
 
         <div className="settings-management">
@@ -763,8 +818,7 @@ type View = 'selection' | 'moderator_console' | 'moderator_screen' | 'speaker_co
 
 const App = () => {
   const STORAGE_KEY = 'mnc-communicator-configs';
-  const commsChannel = useRef<BroadcastChannel | null>(null);
-
+  
   // View State
   const [view, setView] = useState<View>('selection'); 
   const [sessionId, setSessionId] = useState('');
@@ -792,7 +846,7 @@ const App = () => {
   const [imageSrc, setImageSrc] = useState('');
   const [imageFit, setImageFit] = useState<ImageFit>('contain');
   
-  // Live State
+  // Live State (from Firebase)
   const [liveDisplayMode, setLiveDisplayMode] = useState<DisplayMode>('timer');
   const [liveMessage, setLiveMessage] = useState('');
   const [liveIsBlinking, setLiveIsBlinking] = useState(false);
@@ -818,38 +872,43 @@ const App = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const isModerator = view === 'moderator_console';
 
-  // --- Real-time Communication Setup ---
+  // --- Real-time Communication (Firebase) ---
   useEffect(() => {
-    if (sessionId) {
-      // NOTE: BroadcastChannel only works for tabs on the SAME computer/browser.
-      // For cross-device communication, replace this with a real-time service
-      // like Firebase, Ably, Pusher, or a custom WebSocket server.
-      const channel = new BroadcastChannel(`mnc-communicator-${sessionId}`);
-      
-      channel.onmessage = (event) => {
-        const { type, payload } = event.data;
+    if (sessionId && isFirebaseConfigured && database) {
+      const contentRef = database.ref(`sessions/${sessionId}/content`);
+      const timerRef = database.ref(`sessions/${sessionId}/timer`);
 
-        if (type === 'CONTENT_UPDATE') {
-          setLiveDisplayMode(payload.displayMode);
-          setLiveMessage(payload.message);
-          setLiveIsBlinking(payload.isBlinking);
-          setLiveImageSrc(payload.imageSrc);
-          setLiveImageFit(payload.imageFit);
-        } else if (type === 'TIMER_UPDATE') {
-          setInitialTime(payload.initialTime);
-          setTimeRemaining(payload.timeRemaining);
-          setIsRunning(payload.isRunning);
+      const onContentUpdate = (snapshot: any) => {
+        const data = snapshot.val();
+        if (data) {
+          setLiveDisplayMode(data.displayMode ?? 'timer');
+          setLiveMessage(data.message ?? '');
+          setLiveIsBlinking(data.isBlinking ?? false);
+          setLiveImageSrc(data.imageSrc ?? '');
+          setLiveImageFit(data.imageFit ?? 'contain');
         }
       };
-      
-      commsChannel.current = channel;
 
+      const onTimerUpdate = (snapshot: any) => {
+        const data = snapshot.val();
+        if (data) {
+          // Only update if the received data is different to avoid loops in moderator console
+          if (data.initialTime !== initialTime) setInitialTime(data.initialTime);
+          if (data.timeRemaining !== timeRemaining) setTimeRemaining(data.timeRemaining);
+          if (data.isRunning !== isRunning) setIsRunning(data.isRunning);
+        }
+      };
+
+      contentRef.on('value', onContentUpdate);
+      timerRef.on('value', onTimerUpdate);
+
+      // Cleanup on component unmount or session change
       return () => {
-        channel.close();
-        commsChannel.current = null;
-      }
+        contentRef.off('value', onContentUpdate);
+        timerRef.off('value', onTimerUpdate);
+      };
     }
-  }, [sessionId]);
+  }, [sessionId, isModerator]); // Re-run if session or role changes
   
   // Persist configs to localStorage whenever they change
   useEffect(() => {
@@ -879,41 +938,46 @@ const App = () => {
     return () => clearInterval(interval);
   }, [isRunning, timeRemaining, isModerator]);
   
-  const broadcastTimerState = () => {
-      if (commsChannel.current && isModerator) {
-          commsChannel.current.postMessage({
-              type: 'TIMER_UPDATE',
-              payload: { timeRemaining, isRunning, initialTime }
-          });
-      }
+  const broadcastTimerState = (state: { time: number; running: boolean; initial: number }) => {
+    if (isFirebaseConfigured && database && sessionId && isModerator) {
+      const timerRef = database.ref(`sessions/${sessionId}/timer`);
+      timerRef.set({
+        timeRemaining: state.time,
+        isRunning: state.running,
+        initialTime: state.initial,
+      });
+    }
   };
   
-  const broadcastContentState = () => {
-       if (commsChannel.current && isModerator) {
-          commsChannel.current.postMessage({
-              type: 'CONTENT_UPDATE',
-              payload: { displayMode, message, isBlinking, imageSrc, imageFit }
-          });
-      }
+  const broadcastContentState = (state: { mode: DisplayMode; msg: string; blink: boolean; img: string; fit: ImageFit }) => {
+    if (isFirebaseConfigured && database && sessionId && isModerator) {
+      const contentRef = database.ref(`sessions/${sessionId}/content`);
+      contentRef.set({
+        displayMode: state.mode,
+        message: state.msg,
+        isBlinking: state.blink,
+        imageSrc: state.img,
+        imageFit: state.fit,
+      });
+    }
   };
-  
+
   const handleSetTime = (minutes: number, seconds: number) => {
     const newTime = (minutes * 60) + seconds;
     setInitialTime(newTime);
     setTimeRemaining(newTime);
     setIsRunning(false);
-    
-    // Broadcast immediately after state update is queued
-    setTimeout(() => broadcastTimerState(), 0);
+    broadcastTimerState({ time: newTime, running: false, initial: newTime });
   };
-  
+
   const handleStartPause = () => {
     if (timeRemaining > 0) {
-      setIsRunning(prev => !prev);
-      setTimeout(() => broadcastTimerState(), 0);
+      const newIsRunning = !isRunning;
+      setIsRunning(newIsRunning);
+      broadcastTimerState({ time: timeRemaining, running: newIsRunning, initial: initialTime });
     }
   };
-  
+
   const handleReset = () => {
     setIsRunning(false);
     setTimeRemaining(initialTime);
@@ -923,10 +987,11 @@ const App = () => {
     setIsBlinking(false);
     setDisplayMode('timer');
     
-    setTimeout(() => {
-        broadcastTimerState();
-        handleBroadcast(); // Broadcast the cleared state
-    }, 0);
+    broadcastTimerState({ time: initialTime, running: false, initial: initialTime });
+    broadcastContentState({ mode: 'timer', msg: '', blink: false, img: '', fit: 'contain' });
+    
+    // Sync live view immediately
+    handleBroadcast();
   };
 
   const handleSendMessage = (msg: string) => {
@@ -960,12 +1025,14 @@ const App = () => {
   const handleSaveSettings = (newStyles: Styles) => setStyles(newStyles);
   
   const handleBroadcast = () => {
-    setLiveDisplayMode(displayMode);
-    setLiveMessage(message);
-    setLiveIsBlinking(isBlinking);
-    setLiveImageSrc(imageSrc);
-    setLiveImageFit(imageFit);
-    broadcastContentState();
+    // Local state for live view is updated via Firebase listener
+    broadcastContentState({
+      mode: displayMode,
+      msg: message,
+      blink: isBlinking,
+      img: imageSrc,
+      fit: imageFit,
+    });
   };
 
   const handleBackToSelection = () => {
