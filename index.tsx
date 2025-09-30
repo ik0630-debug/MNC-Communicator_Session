@@ -29,7 +29,9 @@ const firebaseConfig = {
 
 // --- Firebase Initialization ---
 let database: any;
-const isFirebaseConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "AIzaSyDxaWIl2IVH6Ozoclkjd5BfM8_AHieEzls" && firebaseConfig.apiKey !== "YOUR_API_KEY";
+// FIX: The check incorrectly treated the actual API key as a placeholder, causing it to always be false.
+// This is now corrected to only check for an empty or generic placeholder key.
+const isFirebaseConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
 
 if (isFirebaseConfigured) {
     try {
@@ -910,7 +912,10 @@ const App = () => {
 
 
   useEffect(() => {
-    let interval;
+    // FIX: Explicitly type `interval` to satisfy TypeScript's strict mode.
+    // `ReturnType<typeof setInterval>` correctly handles differences between
+    // browser (number) and Node.js (Timeout object) environments.
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isRunning && timeRemaining > 0) {
       interval = setInterval(() => {
         setTimeRemaining(prev => prev - 1);
