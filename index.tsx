@@ -29,7 +29,9 @@ const firebaseConfig = {
 
 // --- Firebase Initialization ---
 let database: any;
-const isFirebaseConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "AIzaSyDxaWIl2IVH6Ozoclkjd5BfM8_AHieEzls" && firebaseConfig.apiKey !== "YOUR_API_KEY";
+// FIX: The check incorrectly treated the actual API key as a placeholder, causing it to always be false.
+// This is now corrected to only check for an empty or generic placeholder key.
+const isFirebaseConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
 
 if (isFirebaseConfigured) {
     try {
@@ -883,16 +885,24 @@ const App = () => {
       const onTimerUpdate = onValue(timerRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          // Only update if the received data is different to avoid loops in moderator console
-          if (data.initialTime !== initialTime) setInitialTime(data.initialTime);
-          if (data.timeRemaining !== timeRemaining) setTimeRemaining(data.timeRemaining);
-          if (data.isRunning !== isRunning) setIsRunning(data.isRunning);
+            // Non-moderators always accept the state from Firebase.
+            // Moderators only accept it if it prevents a loop (e.g., on initial load).
+            if (!isModerator) {
+                setInitialTime(data.initialTime);
+                setTimeRemaining(data.timeRemaining);
+                setIsRunning(data.isRunning);
+            } else {
+                 // Loop prevention for moderator
+                if (data.initialTime !== initialTime) setInitialTime(data.initialTime);
+                if (data.timeRemaining !== timeRemaining) setTimeRemaining(data.timeRemaining);
+                if (data.isRunning !== isRunning) setIsRunning(data.isRunning);
+            }
         }
       });
 
       // Cleanup on component unmount or session change
       return () => {
-        // Detach listeners
+        // Detach listeners by calling the unsubscribe function returned by onValue
         onContentUpdate();
         onTimerUpdate();
       };
@@ -909,23 +919,27 @@ const App = () => {
   }, [savedConfigs]);
 
 
+  // Main timer logic - ONLY the moderator runs the interval and broadcasts.
   useEffect(() => {
-    let interval;
-    if (isRunning && timeRemaining > 0) {
+    let interval: ReturnType<typeof setInterval> | undefined;
+
+    if (isModerator && isRunning && timeRemaining > 0) {
       interval = setInterval(() => {
-        setTimeRemaining(prev => prev - 1);
+        const newTime = timeRemaining - 1;
+        setTimeRemaining(newTime);
+        broadcastTimerState({ time: newTime, running: true, initial: initialTime });
       }, 1000);
-    } else if (isRunning && timeRemaining <= 0) {
+    } else if (isModerator && isRunning && timeRemaining <= 0) {
       setIsRunning(false);
-      // Only moderator auto-sends Time's up message
-      if (isModerator) {
-        setMessage("Time's Up!");
-        setDisplayMode('message');
-        setIsBlinking(true);
-      }
+      broadcastTimerState({ time: 0, running: false, initial: initialTime });
+      setMessage("Time's Up!");
+      setDisplayMode('message');
+      setIsBlinking(true);
+      handleBroadcast(); // Also broadcast the content change
     }
+
     return () => clearInterval(interval);
-  }, [isRunning, timeRemaining, isModerator]);
+  }, [isRunning, timeRemaining, isModerator, initialTime]); // Add dependencies for safety
   
   const broadcastTimerState = (state: { time: number; running: boolean; initial: number }) => {
     if (isFirebaseConfigured && database && sessionId && isModerator) {
