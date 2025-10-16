@@ -104,9 +104,10 @@ interface TimerState {
 
 // --- Initial Constants ---
 const INITIAL_PRESET_MESSAGES: string[] = [
-  "5분 남았습니다. (5 min left)",
-  "발표 마무리 부탁드립니다. (Please wrap up)",
-  "마이크를 가까이 대주세요. (Closer to the mic please)",
+  '행사 시작합니다. 큐~',
+  '장내정리 멘트 부탁드립니다.',
+  'VIP 입장합니다.',
+  '무대 세팅 완료시까지 시간 끌어주세요'
 ];
 
 const INITIAL_FONTS: string[] = [
@@ -1216,39 +1217,44 @@ const App = () => {
   };
 
   const handleStartPause = () => {
-    if (speakerTimerPreview.timeRemaining > 0 || !speakerTimerPreview.isRunning) {
-        const newIsRunning = !speakerTimerPreview.isRunning;
-        const newState = { ...speakerTimerPreview, isRunning: newIsRunning };
-        setSpeakerTimerPreview(newState);
-
-        // Real-time broadcast if timer is already live
-        if (liveSpeakerTimer) {
-            broadcastTimerState(newState);
-        }
-        
-        if (workerRef.current) {
-            workerRef.current.postMessage({ command: newIsRunning ? 'start' : 'pause' });
-        }
-    }
+      // Check using state from closure, as it's just a gate.
+      if (speakerTimerPreview.timeRemaining > 0 || !speakerTimerPreview.isRunning) {
+          setSpeakerTimerPreview(prev => {
+              const newIsRunning = !prev.isRunning;
+              const newState = { ...prev, isRunning: newIsRunning };
+              
+              // Real-time broadcast if timer is already live
+              if (liveSpeakerTimer) {
+                  broadcastTimerState(newState);
+              }
+              
+              if (workerRef.current) {
+                  workerRef.current.postMessage({ command: newIsRunning ? 'start' : 'pause' });
+              }
+              return newState;
+          });
+      }
   };
 
   const handleReset = () => {
-    const newState = {
-        ...speakerTimerPreview,
-        timeRemaining: speakerTimerPreview.initialTime,
-        isRunning: false,
-    };
-    setSpeakerTimerPreview(newState);
-    
-    // Real-time broadcast if timer is already live
-    if (liveSpeakerTimer) {
-        broadcastTimerState(newState);
-    }
+      setSpeakerTimerPreview(prev => {
+          const newState = {
+              ...prev,
+              timeRemaining: prev.initialTime,
+              isRunning: false,
+          };
+          
+          // Real-time broadcast if timer is already live
+          if (liveSpeakerTimer) {
+              broadcastTimerState(newState);
+          }
 
-    if (workerRef.current) {
-        workerRef.current.postMessage({ command: 'pause' });
-        workerRef.current.postMessage({ command: 'setTime', value: speakerTimerPreview.initialTime });
-    }
+          if (workerRef.current) {
+              workerRef.current.postMessage({ command: 'pause' });
+              workerRef.current.postMessage({ command: 'setTime', value: prev.initialTime });
+          }
+          return newState;
+      });
   };
   
   // --- Common Content Control Handlers (used by both consoles) ---
